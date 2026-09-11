@@ -1,4 +1,5 @@
 import { useState } from "react";
+
 import {
   Database,
   Eye,
@@ -12,6 +13,12 @@ import {
   AlertCircle,
   ShieldCheck,
   Sparkles,
+  Terminal,
+  Zap,
+  Code2,
+  Cpu,
+  Activity,
+  ChevronRight,
 } from "lucide-react";
 
 import { Link, useNavigate } from "react-router-dom";
@@ -23,34 +30,26 @@ import {
 
 import { auth } from "../firebase";
 
-function Login() {
+const Login = () => {
   const navigate = useNavigate();
 
-  // =====================================================
-  // FORM STATE
-  // =====================================================
-
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // =====================================================
-  // LOADING STATE
-  // =====================================================
-
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-
-  // =====================================================
-  // MESSAGE STATE
-  // =====================================================
+  const [googleLoading, setGoogleLoading] =
+    useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  const isBusy = loading || googleLoading;
+
   // =====================================================
-  // EMAIL / PASSWORD LOGIN
+  // EMAIL LOGIN
   // =====================================================
 
   const handleLogin = async (event) => {
@@ -59,19 +58,10 @@ function Login() {
     setError("");
     setSuccess("");
 
-    if (loading || googleLoading) {
-      return;
-    }
-
-    // Validate email
-    if (!email.trim()) {
-      setError("Please enter your email address.");
-      return;
-    }
-
-    // Validate password
-    if (!password) {
-      setError("Please enter your password.");
+    if (!email.trim() || !password.trim()) {
+      setError(
+        "Please enter your email and password."
+      );
       return;
     }
 
@@ -96,41 +86,28 @@ function Login() {
 
       if (!response.ok || !data.success) {
         throw new Error(
-          data.message || "Unable to login."
+          data.message ||
+            "Invalid email or password."
         );
       }
-
-      // =================================================
-      // STORE SQLFORGE JWT
-      // =================================================
 
       localStorage.setItem(
         "sqlforge_token",
         data.token
       );
 
-      // =================================================
-      // STORE USER INFORMATION
-      // =================================================
-
-      // Do NOT reference googleUser here.
-      // googleUser only exists inside Google login.
       localStorage.setItem(
         "sqlforge_user",
         JSON.stringify(data.user)
       );
 
-      setSuccess("Login successful. Welcome back!");
-
-      // =================================================
-      // REDIRECT TO DASHBOARD
-      // =================================================
+      setSuccess(
+        "Authentication successful. Opening the Forge..."
+      );
 
       setTimeout(() => {
-        navigate("/dashboard", {
-          replace: true,
-        });
-      }, 500);
+        navigate("/dashboard");
+      }, 700);
     } catch (error) {
       console.error("Login error:", error);
 
@@ -151,96 +128,25 @@ function Login() {
     setError("");
     setSuccess("");
 
-    if (loading || googleLoading) {
-      return;
-    }
-
     try {
       setGoogleLoading(true);
 
-      // =================================================
-      // CREATE GOOGLE PROVIDER
-      // =================================================
+      const provider =
+        new GoogleAuthProvider();
 
-      const provider = new GoogleAuthProvider();
-
-      provider.addScope("profile");
-      provider.addScope("email");
-
-      // =================================================
-      // FIREBASE GOOGLE SIGN-IN
-      // =================================================
+      provider.setCustomParameters({
+        prompt: "select_account",
+      });
 
       const result = await signInWithPopup(
         auth,
         provider
       );
 
-      // =================================================
-      // FIREBASE USER
-      // =================================================
+      const firebaseUser = result.user;
 
-      const googleUser = result.user;
-
-      console.log(
-        "========== GOOGLE USER DEBUG =========="
-      );
-      console.log("Google user:", googleUser);
-      console.log(
-        "Google displayName:",
-        googleUser.displayName
-      );
-      console.log(
-        "Google email:",
-        googleUser.email
-      );
-      console.log(
-        "Google photoURL:",
-        googleUser.photoURL
-      );
-      console.log(
-        "========================================"
-      );
-
-      console.log(
-        "Google authentication successful"
-      );
-
-      console.log(
-        "Name:",
-        googleUser.displayName
-      );
-
-      console.log(
-        "Email:",
-        googleUser.email
-      );
-
-      console.log(
-        "Firebase UID:",
-        googleUser.uid
-      );
-
-      // =================================================
-      // GET FIREBASE ID TOKEN
-      // =================================================
-
-      const firebaseIdToken =
-        await googleUser.getIdToken(true);
-
-      if (!firebaseIdToken) {
-        throw new Error(
-          "Unable to obtain Firebase authentication token."
-        );
-      }
-
-      console.log(
-        "Firebase ID token received"
-      );
-
-      // =================================================
-      // SEND FIREBASE TOKEN TO BACKEND
-      // =================================================
+      const firebaseToken =
+        await firebaseUser.getIdToken();
 
       const response = await fetch(
         "http://localhost:5000/api/auth/google",
@@ -250,92 +156,43 @@ function Login() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            idToken: firebaseIdToken,
+            idToken: firebaseToken,
           }),
         }
       );
 
       const data = await response.json();
 
-      console.log(
-        "Google backend response:",
-        data
-      );
-
-      // =================================================
-      // HANDLE BACKEND ERROR
-      // =================================================
-
       if (!response.ok || !data.success) {
         throw new Error(
           data.message ||
-            "Unable to complete Google authentication."
+            "Google authentication failed."
         );
       }
-
-      // =================================================
-      // STORE SQLFORGE JWT
-      // =================================================
 
       localStorage.setItem(
         "sqlforge_token",
         data.token
       );
 
-      // =================================================
-      // STORE SQLFORGE USER
-      // =================================================
-
-      const sqlforgeUser = {
-        ...data.user,
-        photoURL:
-          googleUser.photoURL || null,
-      };
-
-      console.log(
-        "Google photo URL:",
-        googleUser.photoURL
-      );
-
-      console.log(
-        "User being stored:",
-        sqlforgeUser
-      );
-
       localStorage.setItem(
         "sqlforge_user",
-        JSON.stringify(sqlforgeUser)
-      );
-
-      console.log(
-        "SQLForge authentication successful"
-      );
-
-      console.log(
-        "SQLForge user:",
-        sqlforgeUser
+        JSON.stringify(data.user)
       );
 
       setSuccess(
-        "Google login successful. Welcome to SQLForge!"
+        "Google authentication successful. Opening the Forge..."
       );
 
-      // =================================================
-      // REDIRECT TO DASHBOARD
-      // =================================================
-
       setTimeout(() => {
-        navigate("/dashboard", {
-          replace: true,
-        });
-      }, 500);
+        navigate("/dashboard");
+      }, 700);
     } catch (error) {
       console.error(
         "Google login error:",
         error
       );
 
-      // Firebase-specific errors
       if (
         error.code ===
         "auth/popup-closed-by-user"
@@ -348,19 +205,12 @@ function Login() {
         "auth/popup-blocked"
       ) {
         setError(
-          "Google sign-in popup was blocked. Please allow popups for localhost."
-        );
-      } else if (
-        error.code ===
-        "auth/account-exists-with-different-credential"
-      ) {
-        setError(
-          "An account already exists with this email using another login method."
+          "Google sign-in popup was blocked. Please allow popups and try again."
         );
       } else {
         setError(
           error.message ||
-            "Unable to sign in with Google."
+            "Google sign-in failed. Please try again."
         );
       }
     } finally {
@@ -368,94 +218,104 @@ function Login() {
     }
   };
 
-  // =====================================================
-  // UI
-  // =====================================================
-
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#020202] text-white">
+    <div className="relative min-h-screen overflow-hidden bg-[#020202] text-white">
 
       {/* =================================================
-          BACKGROUND
-      ================================================= */}
+          CINEMATIC BACKGROUND
+      ================================================== */}
 
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
 
-        {/* Main red glow */}
-        <div className="absolute left-1/2 top-[-280px] h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-red-700/10 blur-[160px] sm:h-[750px] sm:w-[750px]" />
+        {/* Main red atmospheric glow */}
+        <div className="absolute left-1/2 top-[-300px] h-[850px] w-[850px] -translate-x-1/2 rounded-full bg-red-700/[0.09] blur-[180px]" />
 
-        {/* Bottom glow */}
-        <div className="absolute bottom-[-220px] left-[-180px] h-[450px] w-[450px] rounded-full bg-red-950/15 blur-[140px] sm:h-[600px] sm:w-[600px]" />
+        {/* Left glow */}
+        <div className="absolute left-[-300px] top-[25%] h-[700px] w-[700px] rounded-full bg-red-950/[0.28] blur-[180px]" />
 
-        {/* Side glow */}
-        <div className="absolute right-[-180px] top-[40%] h-[400px] w-[400px] rounded-full bg-red-950/10 blur-[130px]" />
+        {/* Right glow */}
+        <div className="absolute right-[-350px] bottom-[-150px] h-[700px] w-[700px] rounded-full bg-red-900/[0.18] blur-[180px]" />
 
-        {/* Grid */}
+        {/* Fine grid */}
         <div
-          className="absolute inset-0 opacity-[0.025]"
+          className="absolute inset-0 opacity-[0.035]"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
+              "linear-gradient(rgba(255,255,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.8) 1px, transparent 1px)",
+            backgroundSize: "50px 50px",
           }}
         />
+
+        {/* Center spotlight */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(120,0,0,0.08),transparent_48%)]" />
+
+        {/* Vignette */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_15%,rgba(0,0,0,0.75)_100%)]" />
+
+        {/* Floating particles */}
+        <span className="absolute left-[8%] top-[24%] h-1 w-1 animate-pulse rounded-full bg-red-500/70" />
+        <span className="absolute left-[15%] top-[70%] h-1 w-1 animate-pulse rounded-full bg-red-500/40" />
+        <span className="absolute right-[12%] top-[28%] h-1 w-1 animate-pulse rounded-full bg-red-500/60" />
+        <span className="absolute right-[20%] bottom-[18%] h-1 w-1 animate-pulse rounded-full bg-red-500/40" />
+
       </div>
 
       {/* =================================================
-          HEADER
-      ================================================= */}
+          NAVIGATION
+      ================================================== */}
 
-      <header className="relative z-20 border-b border-white/[0.06] bg-black/60 backdrop-blur-2xl">
+      <header className="relative z-30 border-b border-white/[0.06] bg-black/30 backdrop-blur-2xl">
 
-        <div className="mx-auto flex h-[70px] max-w-7xl items-center justify-between px-4 sm:h-[76px] sm:px-6 lg:px-8">
+        <div className="mx-auto flex h-[72px] max-w-[1450px] items-center justify-between px-5 sm:px-8 lg:px-12">
 
-          {/* Logo */}
-
+          {/* Brand */}
           <Link
             to="/"
-            className="group flex items-center gap-2.5 sm:gap-3"
+            className="group flex items-center gap-3"
           >
 
-            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-red-500/25 bg-red-600 shadow-lg shadow-red-950/40 transition duration-300 group-hover:scale-105 group-hover:bg-red-500 sm:h-10 sm:w-10">
-              <Database
-                size={18}
-                strokeWidth={2.5}
-              />
+            <div className="relative">
 
-              <div className="absolute inset-0 rounded-xl ring-1 ring-red-400/10" />
+              <div className="absolute inset-0 rounded-xl bg-red-600/40 blur-xl transition duration-500 group-hover:bg-red-500/60" />
+
+              <div className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-red-500/30 bg-gradient-to-br from-red-500/15 to-black">
+                <Database
+                  size={21}
+                  className="text-red-500"
+                />
+              </div>
+
             </div>
 
             <div>
-              <div className="text-base font-black tracking-tight sm:text-lg">
-                SQL
-                <span className="text-red-500">
-                  Forge
-                </span>
+
+              <div className="text-[15px] font-black tracking-[0.25em]">
+                SQL<span className="text-red-500">FORGE</span>
               </div>
 
-              <div className="hidden text-[8px] font-semibold uppercase tracking-[0.28em] text-zinc-600 sm:block">
-                SQL Practice Platform
+              <div className="mt-0.5 hidden text-[8px] font-medium uppercase tracking-[0.35em] text-zinc-600 sm:block">
+                Master SQL • Forge Your Future
               </div>
+
             </div>
           </Link>
 
           {/* Back */}
-
           <Link
             to="/"
-            className="group flex items-center gap-2 rounded-lg px-2 py-2 text-xs font-medium text-zinc-500 transition hover:bg-white/[0.03] hover:text-white sm:px-3"
+            className="group flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-4 py-2.5 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-500 backdrop-blur-xl transition duration-300 hover:border-red-500/30 hover:bg-red-500/[0.06] hover:text-white"
           >
             <ArrowLeft
-              size={14}
-              className="transition-transform group-hover:-translate-x-0.5"
+              size={13}
+              className="transition-transform group-hover:-translate-x-1"
             />
 
-            <span className="hidden sm:inline">
+            <span className="hidden sm:block">
               Back to Home
             </span>
 
             <span className="sm:hidden">
-              Home
+              Back
             </span>
           </Link>
 
@@ -464,332 +324,572 @@ function Login() {
 
       {/* =================================================
           MAIN
-      ================================================= */}
+      ================================================== */}
 
-      <main className="relative z-10 flex min-h-[calc(100vh-70px)] items-center justify-center px-4 py-10 sm:px-6 sm:py-14">
+      <main className="relative z-10 flex min-h-[calc(100vh-72px)] items-center justify-center px-4 py-8 sm:px-6 lg:px-10">
 
-        <div className="w-full max-w-[440px]">
-
-          {/* =================================================
-              TOP BRAND MOMENT
-          ================================================= */}
-
-          <div className="mb-7 text-center sm:mb-8">
-
-            <div className="relative mx-auto flex h-[68px] w-[68px] items-center justify-center rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-950/50 to-[#090909] shadow-xl shadow-red-950/20">
-
-              <div className="absolute inset-[-7px] rounded-2xl border border-red-500/[0.04]" />
-
-              <Lock
-                size={24}
-                className="text-red-500"
-                strokeWidth={1.8}
-              />
-            </div>
-
-            <div className="mt-6 flex items-center justify-center gap-2 text-[9px] font-bold uppercase tracking-[0.35em] text-red-500 sm:text-[10px]">
-              <Sparkles size={11} />
-              Welcome Back
-            </div>
-
-            <h1 className="mt-3 text-3xl font-black tracking-[-0.03em] sm:text-4xl">
-              Sign in to{" "}
-              <span className="text-red-500">
-                SQLForge
-              </span>
-            </h1>
-
-            <p className="mx-auto mt-3 max-w-[350px] text-xs leading-6 text-zinc-600 sm:text-sm">
-              Continue your SQL journey, keep your
-              streak alive, and sharpen the skills
-              you need for placements.
-            </p>
-
-          </div>
+        <div className="w-full max-w-[1320px]">
 
           {/* =================================================
-              LOGIN CARD
-          ================================================= */}
+              OUTER GLOW
+          ================================================== */}
 
-          <div className="relative overflow-hidden rounded-3xl border border-white/[0.07] bg-[#070707]/95 shadow-2xl shadow-black/60 backdrop-blur-xl">
+          <div className="relative">
 
-            {/* Top red line */}
+            <div className="absolute -inset-[1px] rounded-[32px] bg-gradient-to-r from-red-600/30 via-transparent to-red-600/20 blur-sm" />
 
-            <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-red-600/70 to-transparent" />
+            <div className="relative overflow-hidden rounded-[30px] border border-white/[0.09] bg-[#070707]/90 shadow-[0_40px_140px_rgba(0,0,0,0.85)] backdrop-blur-3xl">
 
-            <div className="p-5 sm:p-8">
+              {/* Top laser line */}
+              <div className="absolute left-[5%] right-[5%] top-0 h-px bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-80" />
 
-              {/* =================================================
-                  ERROR
-              ================================================= */}
+              <div className="grid lg:grid-cols-[1.15fr_0.85fr]">
 
-              {error && (
-                <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-900/40 bg-red-950/15 px-4 py-3.5">
+                {/* =================================================
+                    HERO SIDE
+                ================================================== */}
 
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-red-500/10">
-                    <AlertCircle
-                      size={15}
-                      className="text-red-500"
-                    />
-                  </div>
+                <section className="relative hidden min-h-[760px] overflow-hidden border-r border-white/[0.06] lg:block">
 
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-red-500">
-                      Sign in failed
-                    </p>
+                  {/* Hero lighting */}
+                  <div className="absolute left-[-250px] top-[20%] h-[650px] w-[650px] rounded-full bg-red-700/[0.09] blur-[160px]" />
 
-                    <p className="mt-1 text-xs leading-5 text-red-300/80">
-                      {error}
-                    </p>
-                  </div>
+                  <div className="relative flex min-h-[760px] flex-col justify-between p-12 xl:p-16">
 
-                </div>
-              )}
+                    {/* -----------------------------------------
+                        Hero heading
+                    ------------------------------------------ */}
 
-              {/* =================================================
-                  SUCCESS
-              ================================================= */}
+                    <div>
 
-              {success && (
-                <div className="mb-5 flex items-start gap-3 rounded-xl border border-emerald-900/40 bg-emerald-950/15 px-4 py-3.5">
+                      <div className="mb-8 flex items-center gap-3">
 
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
-                    <CheckCircle2
-                      size={15}
-                      className="text-emerald-500"
-                    />
-                  </div>
+                        <div className="flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/[0.05] px-3.5 py-2">
 
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">
-                      Success
-                    </p>
+                          <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-50" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                          </span>
 
-                    <p className="mt-1 text-xs leading-5 text-emerald-300/80">
-                      {success}
-                    </p>
-                  </div>
+                          <span className="text-[9px] font-black uppercase tracking-[0.28em] text-red-400">
+                            System Online
+                          </span>
 
-                </div>
-              )}
+                        </div>
 
-              {/* =================================================
-                  FORM
-              ================================================= */}
+                        <div className="h-px w-10 bg-red-500/30" />
 
-              <form
-                onSubmit={handleLogin}
-                className="space-y-5"
-              >
+                        <span className="text-[9px] font-medium uppercase tracking-[0.25em] text-zinc-700">
+                          AUTH.01
+                        </span>
 
-                {/* EMAIL */}
+                      </div>
 
-                <div>
+                      <h1 className="max-w-2xl text-[58px] font-black leading-[0.95] tracking-[-0.055em] xl:text-[72px]">
 
-                  <label
-                    htmlFor="email"
-                    className="mb-2.5 block text-[11px] font-bold uppercase tracking-wider text-zinc-500"
-                  >
-                    Email address
-                  </label>
+                        Enter the
 
-                  <div className="group relative">
+                        <br />
 
-                    <Mail
-                      size={16}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-700 transition group-focus-within:text-red-500"
-                    />
+                        <span className="relative inline-block text-red-500">
 
-                    <input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(event) =>
-                        setEmail(
-                          event.target.value
-                        )
-                      }
-                      placeholder="you@example.com"
-                      autoComplete="email"
-                      disabled={
-                        loading ||
-                        googleLoading
-                      }
-                      className="h-13 w-full rounded-xl border border-white/[0.07] bg-[#030303] pl-11 pr-4 text-sm text-zinc-200 outline-none transition placeholder:text-zinc-700 hover:border-white/[0.12] focus:border-red-600/60 focus:bg-[#050505] focus:ring-4 focus:ring-red-950/20 disabled:cursor-not-allowed disabled:opacity-50"
-                    />
+                          SQL Forge
 
-                  </div>
-                </div>
+                          <span className="absolute -bottom-3 left-0 h-[2px] w-[85%] bg-gradient-to-r from-red-500 via-red-500/40 to-transparent" />
 
-                {/* PASSWORD */}
+                        </span>
 
-                <div>
+                        <span className="text-zinc-700">
+                          .
+                        </span>
 
-                  <div className="mb-2.5 flex items-center justify-between">
+                      </h1>
 
-                    <label
-                      htmlFor="password"
-                      className="text-[11px] font-bold uppercase tracking-wider text-zinc-500"
-                    >
-                      Password
-                    </label>
+                      <p className="mt-8 max-w-xl text-[13px] leading-7 text-zinc-500">
+                        A focused environment built for
+                        developers who want to turn SQL
+                        knowledge into real interview-ready
+                        skills.
+                      </p>
 
-                    <button
-                      type="button"
-                      className="text-[10px] font-semibold text-red-500 transition hover:text-red-400"
-                    >
-                      Forgot password?
-                    </button>
+                    </div>
 
-                  </div>
+                    {/* -----------------------------------------
+                        Giant code visual
+                    ------------------------------------------ */}
 
-                  <div className="group relative">
+                    <div className="relative mt-12">
 
-                    <Lock
-                      size={16}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-700 transition group-focus-within:text-red-500"
-                    />
+                      {/* Ambient glow */}
+                      <div className="absolute left-1/2 top-1/2 h-[250px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-600/[0.07] blur-[100px]" />
 
-                    <input
-                      id="password"
-                      type={
-                        showPassword
-                          ? "text"
-                          : "password"
-                      }
-                      value={password}
-                      onChange={(event) =>
-                        setPassword(
-                          event.target.value
-                        )
-                      }
-                      placeholder="Enter your password"
-                      autoComplete="current-password"
-                      disabled={
-                        loading ||
-                        googleLoading
-                      }
-                      className="h-13 w-full rounded-xl border border-white/[0.07] bg-[#030303] pl-11 pr-12 text-sm text-zinc-200 outline-none transition placeholder:text-zinc-700 hover:border-white/[0.12] focus:border-red-600/60 focus:bg-[#050505] focus:ring-4 focus:ring-red-950/20 disabled:cursor-not-allowed disabled:opacity-50"
-                    />
+                      <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-black/60 shadow-[0_25px_80px_rgba(0,0,0,0.5)]">
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowPassword(
-                          !showPassword
-                        )
-                      }
-                      disabled={
-                        loading ||
-                        googleLoading
-                      }
-                      className="absolute right-3.5 top-1/2 flex -translate-y-1/2 items-center justify-center rounded-lg p-1.5 text-zinc-700 transition hover:bg-white/[0.04] hover:text-zinc-300 disabled:cursor-not-allowed"
-                      aria-label={
-                        showPassword
-                          ? "Hide password"
-                          : "Show password"
-                      }
-                    >
-                      {showPassword ? (
-                        <EyeOff size={16} />
-                      ) : (
-                        <Eye size={16} />
-                      )}
-                    </button>
+                        {/* Terminal top */}
+                        <div className="flex h-11 items-center justify-between border-b border-white/[0.06] bg-white/[0.015] px-4">
 
-                  </div>
-                </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-full bg-red-500/70" />
+                            <span className="h-2.5 w-2.5 rounded-full bg-yellow-500/30" />
+                            <span className="h-2.5 w-2.5 rounded-full bg-green-500/30" />
+                          </div>
 
-                {/* REMEMBER */}
+                          <div className="flex items-center gap-2 text-[8px] font-bold uppercase tracking-[0.3em] text-zinc-700">
+                            <Terminal size={10} />
+                            sqlforge_engine
+                          </div>
 
-                <div className="flex items-center gap-2">
+                          <Activity
+                            size={12}
+                            className="text-red-500/40"
+                          />
 
-                  <input
-                    id="remember"
-                    type="checkbox"
-                    className="h-3.5 w-3.5 cursor-pointer rounded accent-red-600"
-                  />
+                        </div>
 
-                  <label
-                    htmlFor="remember"
-                    className="cursor-pointer text-[11px] text-zinc-600"
-                  >
-                    Remember me
-                  </label>
+                        {/* Code */}
+                        <div className="grid grid-cols-[45px_1fr] font-mono text-[10px] leading-6 sm:text-[11px]">
 
-                </div>
+                          <div className="border-r border-white/[0.04] bg-white/[0.01] py-5 text-center text-zinc-800">
+                            01
+                            <br />
+                            02
+                            <br />
+                            03
+                            <br />
+                            04
+                            <br />
+                            05
+                            <br />
+                            06
+                            <br />
+                            07
+                            <br />
+                            08
+                          </div>
 
-                {/* SIGN IN */}
+                          <div className="overflow-hidden p-5">
 
-                <button
-                  type="submit"
-                  disabled={
-                    loading ||
-                    googleLoading
-                  }
-                  className="group relative flex h-13 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-red-600 text-sm font-bold shadow-xl shadow-red-950/30 transition duration-300 hover:bg-red-500 hover:shadow-red-900/40 disabled:cursor-not-allowed disabled:opacity-60"
-                >
+                            <div>
+                              <span className="text-zinc-700">
+                                -- forge access
+                              </span>
+                            </div>
 
-                  {/* shine */}
+                            <div>
+                              <span className="text-red-500">
+                                SELECT
+                              </span>{" "}
+                              <span className="text-zinc-300">
+                                skills
+                              </span>
+                            </div>
 
-                  <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition duration-700 group-hover:translate-x-full" />
+                            <div>
+                              <span className="text-red-500">
+                                FROM
+                              </span>{" "}
+                              <span className="text-zinc-300">
+                                developer
+                              </span>
+                            </div>
 
-                  <span className="relative flex items-center gap-2">
+                            <div>
+                              <span className="text-red-500">
+                                WHERE
+                              </span>{" "}
+                              <span className="text-zinc-300">
+                                ambition
+                              </span>{" "}
+                              <span className="text-red-400">
+                                =
+                              </span>{" "}
+                              <span className="text-green-500">
+                                'HIGH'
+                              </span>
+                              <span className="text-zinc-500">
+                                ;
+                              </span>
+                            </div>
 
-                    {loading ? (
-                      <>
-                        <Loader2
-                          size={17}
-                          className="animate-spin"
-                        />
-                        Signing in...
-                      </>
-                    ) : (
-                      <>
-                        Sign In
+                            <div className="mt-2 text-zinc-700">
+                              ─────────────────────
+                            </div>
 
-                        <ArrowRight
+                            <div>
+                              <span className="text-green-500">
+                                ✓
+                              </span>{" "}
+                              <span className="text-zinc-400">
+                                query executed
+                              </span>
+                            </div>
+
+                            <div>
+                              <span className="text-green-500">
+                                ✓
+                              </span>{" "}
+                              <span className="text-zinc-400">
+                                practice environment ready
+                              </span>
+                            </div>
+
+                            <div>
+                              <span className="text-red-500">
+                                $
+                              </span>{" "}
+                              <span className="animate-pulse text-zinc-300">
+                                _
+                              </span>
+                            </div>
+
+                          </div>
+
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* -----------------------------------------
+                        Feature row
+                    ------------------------------------------ */}
+
+                    <div className="grid grid-cols-3 gap-3">
+
+                      <div className="group rounded-xl border border-white/[0.06] bg-white/[0.015] p-4 transition duration-300 hover:-translate-y-1 hover:border-red-500/20 hover:bg-red-500/[0.03]">
+
+                        <Code2
                           size={16}
-                          className="transition-transform group-hover:translate-x-1"
+                          className="mb-3 text-red-500"
                         />
-                      </>
+
+                        <div className="text-[9px] font-black uppercase tracking-[0.15em] text-zinc-300">
+                          Practice
+                        </div>
+
+                        <div className="mt-1 text-[8px] leading-4 text-zinc-700">
+                          Real SQL challenges
+                        </div>
+
+                      </div>
+
+                      <div className="group rounded-xl border border-white/[0.06] bg-white/[0.015] p-4 transition duration-300 hover:-translate-y-1 hover:border-red-500/20 hover:bg-red-500/[0.03]">
+
+                        <Cpu
+                          size={16}
+                          className="mb-3 text-red-500"
+                        />
+
+                        <div className="text-[9px] font-black uppercase tracking-[0.15em] text-zinc-300">
+                          Progress
+                        </div>
+
+                        <div className="mt-1 text-[8px] leading-4 text-zinc-700">
+                          Track your mastery
+                        </div>
+
+                      </div>
+
+                      <div className="group rounded-xl border border-white/[0.06] bg-white/[0.015] p-4 transition duration-300 hover:-translate-y-1 hover:border-red-500/20 hover:bg-red-500/[0.03]">
+
+                        <ShieldCheck
+                          size={16}
+                          className="mb-3 text-red-500"
+                        />
+
+                        <div className="text-[9px] font-black uppercase tracking-[0.15em] text-zinc-300">
+                          Secure
+                        </div>
+
+                        <div className="mt-1 text-[8px] leading-4 text-zinc-700">
+                          Protected account
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+                </section>
+
+                {/* =================================================
+                    LOGIN SIDE
+                ================================================== */}
+
+                <section className="relative flex min-h-[760px] flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-14">
+
+                  {/* Mobile hero */}
+                  <div className="mb-10 lg:hidden">
+
+                    <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/[0.05] px-3 py-2">
+
+                      <Sparkles
+                        size={11}
+                        className="text-red-500"
+                      />
+
+                      <span className="text-[9px] font-black uppercase tracking-[0.25em] text-red-400">
+                        SQLForge Access
+                      </span>
+
+                    </div>
+
+                    <h1 className="text-4xl font-black leading-none tracking-[-0.05em]">
+
+                      Enter the{" "}
+                      <span className="text-red-500">
+                        Forge
+                      </span>
+
+                      <span className="text-zinc-700">
+                        .
+                      </span>
+
+                    </h1>
+
+                    <p className="mt-4 text-xs leading-6 text-zinc-600">
+                      Continue your journey toward
+                      becoming interview-ready.
+                    </p>
+
+                  </div>
+
+                  {/* Login form */}
+                  <div className="mx-auto w-full max-w-[440px]">
+
+                    {/* Heading */}
+                    <div className="mb-8 hidden lg:block">
+
+                      <div className="mb-4 flex items-center gap-2">
+
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10">
+                          <Zap
+                            size={13}
+                            className="text-red-500"
+                          />
+                        </div>
+
+                        <span className="text-[9px] font-black uppercase tracking-[0.25em] text-red-500">
+                          Access Terminal
+                        </span>
+
+                      </div>
+
+                      <h2 className="text-3xl font-black tracking-[-0.04em]">
+                        Welcome back.
+                      </h2>
+
+                      <p className="mt-2 text-xs leading-6 text-zinc-600">
+                        Sign in and continue forging
+                        your SQL skills.
+                      </p>
+
+                    </div>
+
+                    {/* Error */}
+                    {error && (
+                      <div className="mb-5 flex gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] p-4">
+
+                        <AlertCircle
+                          size={16}
+                          className="mt-0.5 shrink-0 text-red-500"
+                        />
+
+                        <p className="text-[10px] leading-5 text-red-400">
+                          {error}
+                        </p>
+
+                      </div>
                     )}
 
-                  </span>
-                </button>
+                    {/* Success */}
+                    {success && (
+                      <div className="mb-5 flex gap-3 rounded-xl border border-green-500/20 bg-green-500/[0.05] p-4">
 
-              </form>
+                        <CheckCircle2
+                          size={16}
+                          className="mt-0.5 shrink-0 text-green-500"
+                        />
 
-              {/* =================================================
-                  DIVIDER
-              ================================================= */}
+                        <p className="text-[10px] leading-5 text-green-400">
+                          {success}
+                        </p>
 
-              <div className="my-7 flex items-center gap-3">
+                      </div>
+                    )}
 
-                <div className="h-px flex-1 bg-white/[0.06]" />
+                    {/* Form */}
+                    <form
+                      onSubmit={handleLogin}
+                      className="space-y-5"
+                    >
 
-                <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-zinc-700">
-                  Or continue with
-                </span>
+                      {/* Email */}
+                      <div>
 
-                <div className="h-px flex-1 bg-white/[0.06]" />
+                        <div className="mb-2.5 flex items-center justify-between">
 
-              </div>
+                          <label
+                            htmlFor="email"
+                            className="text-[9px] font-black uppercase tracking-[0.22em] text-zinc-500"
+                          >
+                            Email Address
+                          </label>
 
-              {/* =================================================
-                  GOOGLE
-              ================================================= */}
+                          <span className="text-[8px] text-zinc-800">
+                            REQUIRED
+                          </span>
 
-              <button
+                        </div>
+
+                        <div className="group relative">
+
+                          <Mail
+                            size={15}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-700 transition-colors group-focus-within:text-red-500"
+                          />
+
+                          <input
+                            id="email"
+                            type="email"
+                            value={email}
+                            onChange={(event) =>
+                              setEmail(
+                                event.target.value
+                              )
+                            }
+                            placeholder="you@example.com"
+                            autoComplete="email"
+                            disabled={isBusy}
+                            className="h-[54px] w-full rounded-xl border border-white/[0.08] bg-white/[0.025] pl-11 pr-4 text-xs text-white outline-none transition-all duration-300 placeholder:text-zinc-800 hover:border-white/[0.13] focus:border-red-500/40 focus:bg-red-500/[0.025] focus:shadow-[0_0_30px_rgba(220,38,38,0.06)] disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+
+                        </div>
+
+                      </div>
+
+                      {/* Password */}
+                      <div>
+
+                        <div className="mb-2.5 flex items-center justify-between">
+
+                          <label
+                            htmlFor="password"
+                            className="text-[9px] font-black uppercase tracking-[0.22em] text-zinc-500"
+                          >
+                            Password
+                          </label>
+
+                          <Link
+                            to="/forgot-password"
+                            className="text-[9px] font-bold text-red-500 transition hover:text-red-400"
+                          >
+                            Forgot password?
+                          </Link>
+
+                        </div>
+
+                        <div className="group relative">
+
+                          <Lock
+                            size={15}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-700 transition-colors group-focus-within:text-red-500"
+                          />
+
+                          <input
+                            id="password"
+                            type={
+                              showPassword
+                                ? "text"
+                                : "password"
+                            }
+                            value={password}
+                            onChange={(event) =>
+                              setPassword(
+                                event.target.value
+                              )
+                            }
+                            placeholder="Enter your password"
+                            autoComplete="current-password"
+                            disabled={isBusy}
+                            className="h-[54px] w-full rounded-xl border border-white/[0.08] bg-white/[0.025] pl-11 pr-12 text-xs text-white outline-none transition-all duration-300 placeholder:text-zinc-800 hover:border-white/[0.13] focus:border-red-500/40 focus:bg-red-500/[0.025] focus:shadow-[0_0_30px_rgba(220,38,38,0.06)] disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowPassword(
+                                !showPassword
+                              )
+                            }
+                            disabled={isBusy}
+                            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-700 transition hover:bg-white/[0.05] hover:text-zinc-300"
+                          >
+                            {showPassword ? (
+                              <EyeOff size={15} />
+                            ) : (
+                              <Eye size={15} />
+                            )}
+                          </button>
+
+                        </div>
+
+                      </div>
+
+                      {/* Login button */}
+                      <button
+                        type="submit"
+                        disabled={isBusy}
+                        className="group relative mt-2 flex h-[56px] w-full items-center justify-center gap-3 overflow-hidden rounded-xl bg-red-600 text-[10px] font-black uppercase tracking-[0.22em] text-white shadow-[0_15px_45px_rgba(220,38,38,0.2)] transition-all duration-300 hover:bg-red-500 hover:shadow-[0_18px_55px_rgba(220,38,38,0.32)] active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+
+                        {/* Shine */}
+                        <span className="absolute inset-y-0 -left-20 w-16 -skew-x-12 bg-white/25 transition-transform duration-700 group-hover:translate-x-[600px]" />
+
+                        {/* Inner glow */}
+                        <span className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/10" />
+
+                        {loading ? (
+                          <>
+                            <Loader2
+                              size={15}
+                              className="animate-spin"
+                            />
+                            Authenticating...
+                          </>
+                        ) : (
+                          <>
+                            Enter SQLForge
+
+                            <ArrowRight
+                              size={15}
+                              className="transition-transform duration-300 group-hover:translate-x-1"
+                            />
+                          </>
+                        )}
+
+                      </button>
+
+                    </form>
+
+                    {/* Divider */}
+                    <div className="my-7 flex items-center gap-4">
+
+                      <div className="h-px flex-1 bg-white/[0.06]" />
+
+                      <span className="text-[8px] font-bold uppercase tracking-[0.25em] text-zinc-700">
+                        OR
+                      </span>
+
+                      <div className="h-px flex-1 bg-white/[0.06]" />
+
+                    </div>
+
+                    {/* Google */}
+                   <button
                 type="button"
                 onClick={handleGoogleLogin}
-                disabled={
-                  loading ||
-                  googleLoading
-                }
-                className="group flex h-13 w-full items-center justify-center gap-3 rounded-xl border border-white/[0.08] bg-[#030303] text-xs font-semibold text-zinc-300 transition duration-300 hover:border-white/[0.16] hover:bg-[#0b0b0b] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isBusy}
+                className="group flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-800/90 bg-black/40 py-3.5 text-sm font-semibold text-zinc-300 transition duration-200 hover:border-zinc-700 hover:bg-zinc-900/70 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-
                 {googleLoading ? (
                   <>
                     <Loader2
@@ -801,93 +901,186 @@ function Login() {
                   </>
                 ) : (
                   <>
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[13px] font-black text-[#4285F4] shadow-sm transition duration-300 group-hover:scale-105">
-                      G
-                    </span>
+                    <div className="flex h-5 w-5 items-center justify-center">
+
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M21.805 10.023H12v3.954h5.635c-.242 1.273-.968 2.352-2.063 3.079v2.555h3.339c1.953-1.798 3.079-4.444 3.079-7.588 0-.726-.065-1.427-.185-2Z"
+                          fill="#4285F4"
+                        />
+
+                        <path
+                          d="M12 22c2.79 0 5.136-.923 6.847-2.389l-3.339-2.555c-.923.619-2.102.986-3.508.986-2.698 0-4.984-1.824-5.802-4.276H2.746v2.637A10.342 10.342 0 0 0 12 22Z"
+                          fill="#34A853"
+                        />
+
+                        <path
+                          d="M6.198 13.766A6.214 6.214 0 0 1 5.865 12c0-.613.105-1.21.333-1.766V7.597H2.746A10.006 10.006 0 0 0 1.657 12c0 1.6.383 3.112 1.089 4.403l3.452-2.637Z"
+                          fill="#FBBC05"
+                        />
+
+                        <path
+                          d="M12 5.958c1.518 0 2.878.522 3.952 1.546l2.966-2.966C17.132 2.951 14.79 2 12 2A10.342 10.342 0 0 0 2.746 7.597l3.452 2.637C7.016 7.782 9.302 5.958 12 5.958Z"
+                          fill="#EA4335"
+                        />
+                      </svg>
+                    </div>
 
                     Continue with Google
                   </>
                 )}
-
               </button>
 
-              {/* =================================================
-                  REGISTER
-              ================================================= */}
 
-              <div className="mt-7 border-t border-white/[0.05] pt-6">
 
-                <p className="text-center text-xs text-zinc-600">
-                  Don't have an account?
-                </p>
+                    {/* Register */}
+                    <div className="mt-7 text-center">
 
-                <Link
-                  to="/register"
-                  className="group mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-500/15 bg-red-950/10 text-xs font-bold text-red-400 transition duration-300 hover:border-red-500/30 hover:bg-red-950/20 hover:text-red-300"
-                >
-                  Create your SQLForge account
+                      <span className="text-[10px] text-zinc-600">
+                        New to SQLForge?
+                      </span>
 
-                  <ArrowRight
-                    size={13}
-                    className="transition-transform group-hover:translate-x-0.5"
-                  />
-                </Link>
+                      <Link
+                        to="/register"
+                        className="ml-2 text-[10px] font-black uppercase tracking-wider text-red-500 transition hover:text-red-400"
+                      >
+                        Create account
+                      </Link>
+
+                    </div>
+
+                    {/* Security status */}
+                    <div className="mt-8 flex items-center justify-center gap-2">
+
+                      <div className="flex items-center gap-2 rounded-full border border-white/[0.05] bg-white/[0.015] px-3 py-1.5">
+
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-40" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
+                        </span>
+
+                        <ShieldCheck
+                          size={11}
+                          className="text-zinc-700"
+                        />
+
+                        <span className="text-[7px] font-bold uppercase tracking-[0.2em] text-zinc-700">
+                          Secure authentication
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  {/* =================================================
+                      JOE SIGNATURE
+                  ================================================== */}
+
+                  <div className="mx-auto mt-10 w-full max-w-[440px]">
+
+                    <div className="group relative overflow-hidden rounded-2xl">
+
+                      {/* Animated border */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-red-700/40 via-red-500/10 to-red-700/40 opacity-70" />
+
+                      <div className="relative m-[1px] rounded-[15px] border border-red-500/10 bg-[#080808]/95 px-5 py-4 backdrop-blur-xl">
+
+                        <div className="flex items-center justify-between">
+
+                          {/* JOE */}
+                          <div className="flex items-center gap-3">
+
+                            <div className="relative">
+
+                              <div className="absolute inset-0 rounded-xl bg-red-600/30 blur-lg transition group-hover:bg-red-500/50" />
+
+                              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-red-500/30 bg-gradient-to-br from-red-500/15 to-black">
+
+                                <span className="text-sm font-black tracking-wider text-red-500">
+                                  J
+                                </span>
+
+                              </div>
+
+                            </div>
+
+                            <div>
+
+                              <p className="text-[7px] font-bold uppercase tracking-[0.28em] text-zinc-700">
+                                Designed & Built by
+                              </p>
+
+                              <p className="mt-0.5 text-[15px] font-black tracking-[0.22em] text-white">
+                                J
+                                <span className="text-red-500">
+                                  OE
+                                </span>
+                              </p>
+
+                            </div>
+
+                          </div>
+
+                          {/* Right */}
+                          <div className="text-right">
+
+                            <div className="mb-1 flex items-center justify-end gap-1.5">
+
+                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+
+                              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-red-500">
+                                SQLForge
+                              </span>
+
+                            </div>
+
+                            <p className="text-[7px] tracking-wider text-zinc-700">
+                              Built for the next query.
+                            </p>
+
+                          </div>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    <div className="mt-3 text-center text-[7px] font-medium uppercase tracking-[0.28em] text-zinc-800">
+                      © {new Date().getFullYear()} SQLForge
+                      <span className="mx-2 text-red-900">
+                        •
+                      </span>
+                      Forge Your Future
+                    </div>
+
+                  </div>
+
+                </section>
 
               </div>
 
             </div>
           </div>
 
-          {/* =================================================
-              SECURITY
-          ================================================= */}
+          {/* Bottom micro status */}
+          <div className="mt-5 flex items-center justify-center gap-3 text-[7px] font-bold uppercase tracking-[0.3em] text-zinc-800">
 
-          <div className="mt-6 flex items-center justify-center gap-2 text-[9px] uppercase tracking-wider text-zinc-700">
+            <span className="h-px w-8 bg-zinc-900" />
 
-            <ShieldCheck
-              size={12}
-              className="text-zinc-700"
-            />
+            <Activity size={10} />
 
-            Secure authentication
+            SQL Practice Platform
 
-            <span className="text-zinc-800">
-              •
-            </span>
-
-            SQLForge + Firebase
-
-          </div>
-
-          {/* =================================================
-              JOE SIGNATURE
-          ================================================= */}
-
-          <div className="mt-6 flex flex-col items-center">
-
-            <div className="flex items-center gap-2">
-
-              <div className="h-px w-6 bg-red-900/50" />
-
-              <span className="text-[9px] uppercase tracking-[0.2em] text-zinc-700">
-                Made with
-              </span>
-
-              <span className="text-sm text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.45)]">
-                ♥
-              </span>
-
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-red-400">
-                by Joe
-              </span>
-
-              <div className="h-px w-6 bg-red-900/50" />
-
-            </div>
-
-            <p className="mt-2 text-[8px] uppercase tracking-[0.25em] text-zinc-800">
-              Practice. Improve. Forge.
-            </p>
+            <span className="h-px w-8 bg-zinc-900" />
 
           </div>
 
@@ -895,6 +1088,6 @@ function Login() {
       </main>
     </div>
   );
-}
+};
 
 export default Login;

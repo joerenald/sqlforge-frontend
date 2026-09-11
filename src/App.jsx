@@ -13,6 +13,8 @@ import MediumLevels from "./pages/MediumLevels";
 import AdvancedLevels from "./pages/AdvancedLevels";
 import Progress from "./pages/Progress";
 import Profile from "./pages/Profile";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 function App() {
   return (
     <BrowserRouter>
@@ -27,8 +29,11 @@ function App() {
         <Route path="/login" element={<Login />} />
 
         <Route path="/register" element={<Register />} />
-
-
+<Route
+  path="/forgot-password"
+  element={<ForgotPassword />}
+/>
+<Route path="/reset-password/:token" element={<ResetPassword />} />
         {/* =====================================================
             PROTECTED ROUTES
         ====================================================== */}
@@ -73,6 +78,7 @@ function App() {
   element={<Progress />}
 />
 <Route path="/profile" element={<Profile />} />
+
           {/* =================================================
               EASY CHALLENGE
               EXISTING ROUTE — UNCHANGED
