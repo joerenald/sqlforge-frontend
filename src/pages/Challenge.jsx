@@ -37,7 +37,7 @@ const QUESTIONS_PER_LEVEL = 50;
 
 const TABLES_PER_PAGE = 7;
 
-const API_BASE_URL = "http://localhost:5000/api/sql/execute";
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api/sql/execute`;
 
 // ============================================================
 // DEFAULT PROGRESS
@@ -735,9 +735,9 @@ const completeLevel = async () => {
         ? "medium"
         : "easy";
 
-    const response = await fetch(
-      "http://localhost:5000/api/progress/complete",
-      {
+   const response = await fetch(
+  `${import.meta.env.VITE_API_URL}/api/progress/complete`,
+  {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

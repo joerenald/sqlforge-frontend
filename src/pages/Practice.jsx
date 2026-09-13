@@ -33,7 +33,7 @@ import QueryResult from "../components/QueryResult";
 // ============================================================
 
 const API_BASE_URL =
-  "http://localhost:5000/api/sql/execute";
+  `${import.meta.env.VITE_API_URL}/api/sql/execute`;
 
 const TABLES_PER_PAGE = 7;
 
