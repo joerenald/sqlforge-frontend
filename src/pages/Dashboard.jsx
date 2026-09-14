@@ -143,7 +143,7 @@ useEffect(() => {
       }
 
       const response = await fetch(
-        "http://localhost:5000/api/progress",
+        `${import.meta.env.VITE_API_URL}/api/progress`,
         {
           method: "GET",
           headers: {
