@@ -67,25 +67,31 @@ function getCompletedCount(section) {
 function Progress() {
   const navigate = useNavigate();
 
-const [progress, setProgress] = useState(DEFAULT_PROGRESS);
+const [progress, setProgress] = useState(
+  DEFAULT_PROGRESS
+);
 const [loading, setLoading] = useState(true);
 
   // ==========================================================
   // REFRESH WHEN CHALLENGE PROGRESS CHANGES
   // ==========================================================
 
- useEffect(() => {
+useEffect(() => {
   const loadProgress = async () => {
     try {
-      const token = localStorage.getItem("sqlforge_token");
+      const token =
+        localStorage.getItem("sqlforge_token");
 
       if (!token) {
-        navigate("/login");
+        navigate("/login", {
+          replace: true,
+        });
+
         return;
       }
 
       const response = await fetch(
-        "http://localhost:5000/api/progress",
+        `${import.meta.env.VITE_API_URL}/api/progress`,
         {
           method: "GET",
           headers: {
@@ -98,17 +104,56 @@ const [loading, setLoading] = useState(true);
 
       if (!response.ok || !data.success) {
         throw new Error(
-          data.message || "Unable to load progress."
+          data.message ||
+            "Unable to load progress."
         );
       }
 
-      setProgress(data.progress);
+      setProgress({
+        easy: {
+          completed:
+            Array.isArray(
+              data.progress?.easy?.completed
+            )
+              ? data.progress.easy.completed.map(
+                  Number
+                )
+              : [],
+        },
+
+        medium: {
+          completed:
+            Array.isArray(
+              data.progress?.medium?.completed
+            )
+              ? data.progress.medium.completed.map(
+                  Number
+                )
+              : [],
+        },
+
+        advanced: {
+          completed:
+            Array.isArray(
+              data.progress?.advanced?.completed
+            )
+              ? data.progress.advanced.completed.map(
+                  Number
+                )
+              : [],
+        },
+
+        xp: Number(data.progress?.xp) || 0,
+
+        streak:
+          Number(data.progress?.streak) || 0,
+      });
+      setLoading(false);
     } catch (error) {
       console.error(
         "Unable to load SQLForge progress:",
         error
       );
-    } finally {
       setLoading(false);
     }
   };
